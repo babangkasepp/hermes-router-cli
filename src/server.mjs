@@ -4,6 +4,7 @@ import { apiKeyGuard } from './security.mjs';
 import { proxyChatCompletion, proxyModels } from './proxy.mjs';
 import { createMetrics } from './metrics.mjs';
 import { registerDashboard } from './dashboardStable.mjs';
+import { registerSetupRoutes } from './setupRoutes.mjs';
 
 export async function startServer(config) {
   const app = express();
@@ -29,12 +30,14 @@ export async function startServer(config) {
       ok: true,
       name: 'hermes-router-cli',
       mode: config.dashboard?.enabled ? 'dashboard-enabled' : 'cli-only',
+      purpose: 'hermes-only-ai-router',
       uptimeSeconds: Math.floor(process.uptime())
     });
   });
 
   if (config.dashboard?.enabled) {
     registerDashboard(app, config, metrics, log, apiKeyGuard);
+    registerSetupRoutes(app, config, apiKeyGuard, log);
   }
 
   app.get('/v1/models', apiKeyGuard(config), (req, res) => proxyModels(req, res, config, log));
@@ -43,7 +46,7 @@ export async function startServer(config) {
   app.use((_req, res) => {
     res.status(404).json({
       error: {
-        message: 'Route not found. Supported: GET /health, GET /dashboard, GET /v1/models, POST /v1/chat/completions',
+        message: 'Route not found. Supported: GET /health, GET /dashboard, setup APIs, GET /v1/models, POST /v1/chat/completions',
         type: 'not_found'
       }
     });
