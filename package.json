@@ -1,0 +1,34 @@
+{
+  "name": "hermes-router-cli",
+  "version": "0.1.0",
+  "description": "Private CLI-only local gateway/router for Hermes-compatible AI endpoints.",
+  "type": "module",
+  "bin": {
+    "hermes-router": "./src/cli.mjs"
+  },
+  "scripts": {
+    "start": "node ./src/cli.mjs start",
+    "dev": "node --watch ./src/cli.mjs start",
+    "doctor": "node ./src/cli.mjs doctor",
+    "init": "node ./src/cli.mjs init"
+  },
+  "keywords": [
+    "hermes",
+    "ai-router",
+    "openai-compatible",
+    "cli",
+    "gateway"
+  ],
+  "author": "Private project scaffold",
+  "license": "MIT",
+  "engines": {
+    "node": ">=20.0.0"
+  },
+  "dependencies": {
+    "commander": "^12.1.0",
+    "dotenv": "^16.4.7",
+    "express": "^4.21.2",
+    "pino": "^9.5.0",
+    "undici": "^6.21.1"
+  }
+}
