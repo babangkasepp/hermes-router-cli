@@ -5,9 +5,15 @@
     "requireApiKey": true,
     "apiKey": "change-this-local-router-key"
   },
+  "dashboard": {
+    "enabled": true,
+    "protectPage": false,
+    "refreshMs": 5000
+  },
   "hermes": {
     "baseUrl": "http://127.0.0.1:3080",
     "apiKey": "",
+    "passThroughClientAuth": false,
     "chatPath": "/v1/chat/completions",
     "modelsPath": "/v1/models",
     "timeoutMs": 120000,
