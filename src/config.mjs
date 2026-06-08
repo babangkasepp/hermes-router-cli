@@ -25,6 +25,7 @@ export function defaultConfig() {
     hermes: {
       baseUrl: process.env.HERMES_BASE_URL || 'http://127.0.0.1:3080',
       apiKey: process.env.HERMES_API_KEY || '',
+      passThroughClientAuth: parseBool(process.env.HERMES_PASS_THROUGH_CLIENT_AUTH, false),
       chatPath: process.env.HERMES_CHAT_PATH || '/v1/chat/completions',
       modelsPath: process.env.HERMES_MODELS_PATH || '/v1/models',
       timeoutMs: Number(process.env.HERMES_TIMEOUT_MS || 120000),
