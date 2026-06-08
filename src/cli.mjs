@@ -8,8 +8,8 @@ const program = new Command();
 
 program
   .name('hermes-router')
-  .description('CLI-only local gateway/router for Hermes-compatible AI endpoints')
-  .version('0.1.0');
+  .description('Local gateway/router and dashboard for Hermes-compatible AI endpoints')
+  .version('0.2.0');
 
 program
   .command('init')
@@ -54,6 +54,8 @@ program
   .option('-p, --port <port>', 'server port override')
   .option('--hermes-url <url>', 'Hermes base URL override')
   .option('--no-api-key', 'disable local router API key guard')
+  .option('--no-dashboard', 'disable browser dashboard')
+  .option('--protect-dashboard', 'require API key for /dashboard page too')
   .action(async (options) => {
     const config = loadConfig(options.config);
 
@@ -61,16 +63,24 @@ program
     if (options.port) config.server.port = Number(options.port);
     if (options.hermesUrl) config.hermes.baseUrl = options.hermesUrl;
     if (options.apiKey === false) config.server.requireApiKey = false;
+    if (options.dashboard === false) config.dashboard.enabled = false;
+    if (options.protectDashboard) config.dashboard.protectPage = true;
 
-    const { host, port } = await startServer(config);
-    console.log(`Hermes Router running: http://${host}:${port}`);
-    console.log(`OpenAI-compatible endpoint: http://${host}:${port}/v1`);
-    console.log(`Hermes upstream: ${config.hermes.baseUrl}`);
+    try {
+      const { host, port } = await startServer(config);
+      console.log(`Hermes Router running: http://${host}:${port}`);
+      console.log(`OpenAI-compatible endpoint: http://${host}:${port}/v1`);
+      if (config.dashboard.enabled) console.log(`Dashboard: http://${host}:${port}/dashboard`);
+      console.log(`Hermes upstream: ${config.hermes.baseUrl}`);
 
-    if (config.server.requireApiKey) {
-      console.log('Local API key guard: ON. Use Authorization: Bearer <server.apiKey>.');
-    } else {
-      console.log('Local API key guard: OFF. Keep host bound to 127.0.0.1 for private use.');
+      if (config.server.requireApiKey) {
+        console.log('Local API key guard: ON. Use Authorization: Bearer <server.apiKey>.');
+      } else {
+        console.log('Local API key guard: OFF. Keep host bound to 127.0.0.1 for private use.');
+      }
+    } catch (error) {
+      console.error(`Failed to start Hermes Router: ${error.message}`);
+      process.exitCode = 1;
     }
   });
 
