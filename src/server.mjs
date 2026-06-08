@@ -5,6 +5,7 @@ import { proxyChatCompletion, proxyModels } from './proxy.mjs';
 import { createMetrics } from './metrics.mjs';
 import { registerDashboard } from './dashboardStable.mjs';
 import { registerSetupRoutes } from './setupRoutes.mjs';
+import { registerSetupPage } from './setupPage.mjs';
 
 export async function startServer(config) {
   const app = express();
@@ -38,6 +39,7 @@ export async function startServer(config) {
   if (config.dashboard?.enabled) {
     registerDashboard(app, config, metrics, log, apiKeyGuard);
     registerSetupRoutes(app, config, apiKeyGuard, log);
+    registerSetupPage(app, config, apiKeyGuard);
   }
 
   app.get('/v1/models', apiKeyGuard(config), (req, res) => proxyModels(req, res, config, log));
@@ -46,7 +48,7 @@ export async function startServer(config) {
   app.use((_req, res) => {
     res.status(404).json({
       error: {
-        message: 'Route not found. Supported: GET /health, GET /dashboard, setup APIs, GET /v1/models, POST /v1/chat/completions',
+        message: 'Route not found. Supported: GET /health, GET /dashboard, GET /setup, setup APIs, GET /v1/models, POST /v1/chat/completions',
         type: 'not_found'
       }
     });
