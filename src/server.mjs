@@ -3,7 +3,7 @@ import { createLogger } from './logger.mjs';
 import { apiKeyGuard } from './security.mjs';
 import { proxyChatCompletion, proxyModels } from './proxy.mjs';
 import { createMetrics } from './metrics.mjs';
-import { registerDashboard } from './dashboard.mjs';
+import { registerDashboard } from './dashboardStable.mjs';
 
 export async function startServer(config) {
   const app = express();
