@@ -2,13 +2,17 @@ import express from 'express';
 import { createLogger } from './logger.mjs';
 import { apiKeyGuard } from './security.mjs';
 import { proxyChatCompletion, proxyModels } from './proxy.mjs';
+import { createMetrics } from './metrics.mjs';
+import { registerDashboard } from './dashboard.mjs';
 
 export async function startServer(config) {
   const app = express();
   const log = createLogger(config);
+  const metrics = createMetrics();
 
   app.disable('x-powered-by');
   app.use(express.json({ limit: '12mb' }));
+  app.use(metrics.middleware());
 
   app.use((req, _res, next) => {
     req.requestId = `${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 8)}`;
@@ -21,8 +25,10 @@ export async function startServer(config) {
   });
 
   app.get('/health', (_req, res) => {
-    res.json({ ok: true, name: 'hermes-router-cli', mode: 'cli-only' });
+    res.json({ ok: true, name: 'hermes-router-cli', mode: 'dashboard-enabled' });
   });
+
+  registerDashboard(app, config, metrics, log, apiKeyGuard);
 
   app.get('/v1/models', apiKeyGuard(config), (req, res) => proxyModels(req, res, config, log));
   app.post('/v1/chat/completions', apiKeyGuard(config), (req, res) => proxyChatCompletion(req, res, config, log));
@@ -30,7 +36,7 @@ export async function startServer(config) {
   app.use((_req, res) => {
     res.status(404).json({
       error: {
-        message: 'Route not found. Supported: GET /health, GET /v1/models, POST /v1/chat/completions',
+        message: 'Route not found. Supported: GET /health, GET /dashboard, GET /v1/models, POST /v1/chat/completions',
         type: 'not_found'
       }
     });
