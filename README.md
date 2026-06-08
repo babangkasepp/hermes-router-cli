@@ -1,13 +1,13 @@
 # Hermes Router CLI
 
-Project ini adalah **CLI-only local gateway/router** yang dibuat sebagai versi ramping dari konsep 9Router, tapi fokusnya hanya untuk **Hermes**.
+Project ini adalah **CLI local gateway/router** yang dibuat sebagai versi ramping dari konsep 9Router, tapi fokusnya hanya untuk **Hermes**.
 
 Targetnya:
 
 - Satu endpoint lokal untuk Hermes.
 - OpenAI-compatible API: `/v1/chat/completions` dan `/v1/models`.
 - Bisa dipakai oleh agent/coding tool yang butuh `base_url` OpenAI-style.
-- Tanpa dashboard berat.
+- Ada dashboard ringan di browser untuk monitoring lokal.
 - Cocok untuk pemakaian pribadi di laptop/PC/VPS private.
 
 ---
@@ -25,8 +25,10 @@ Targetnya:
 | Fallback Hermes URL | ✅ |
 | Streaming response | ✅ |
 | Token saver sederhana | ✅ |
+| Browser dashboard `/dashboard` | ✅ |
+| Request metrics in-memory | ✅ |
+| Hermes health check dari dashboard | ✅ |
 | Dockerfile | ✅ |
-| Dashboard | ❌ sengaja tidak dibuat |
 
 ---
 
@@ -37,11 +39,17 @@ hermes-router-cli/
 ├─ src/
 │  ├─ cli.mjs
 │  ├─ config.mjs
+│  ├─ dashboard.mjs
 │  ├─ logger.mjs
+│  ├─ metrics.mjs
 │  ├─ proxy.mjs
 │  ├─ security.mjs
 │  ├─ server.mjs
 │  └─ tokenSaver.mjs
+├─ scripts/
+│  ├─ push-github.ps1
+│  ├─ push-github.sh
+│  └─ smoke-test.mjs
 ├─ package.json
 ├─ config.example.json
 ├─ .env.example
@@ -107,11 +115,67 @@ Default local endpoint:
 http://127.0.0.1:20128/v1
 ```
 
+Dashboard:
+
+```txt
+http://127.0.0.1:20128/dashboard
+```
+
 Untuk override langsung dari CLI:
 
 ```bash
 hermes-router start --host 127.0.0.1 --port 20128 --hermes-url http://127.0.0.1:3080
 ```
+
+---
+
+## Dashboard
+
+Buka:
+
+```txt
+http://127.0.0.1:20128/dashboard
+```
+
+Dashboard menampilkan:
+
+- Total request.
+- Total error.
+- Error rate.
+- Uptime router.
+- Config router yang aman ditampilkan.
+- Config Hermes tanpa secret.
+- Route hits.
+- Status buckets `2xx`, `4xx`, `5xx`.
+- 30 request terakhir.
+- Health check Hermes upstream.
+
+Kalau `server.requireApiKey=true`, paste API key dari:
+
+```txt
+~/.hermes-router/config.json
+```
+
+Ambil nilai:
+
+```json
+{
+  "server": {
+    "apiKey": "hrk_xxx"
+  }
+}
+```
+
+Lalu paste ke input dashboard dan klik **Save Key**.
+
+Endpoint dashboard data:
+
+```txt
+GET /dashboard/api/summary
+GET /dashboard/health
+```
+
+Keduanya ikut dilindungi API key lokal jika `requireApiKey` aktif.
 
 ---
 
@@ -124,7 +188,7 @@ curl http://127.0.0.1:20128/health
 Expected:
 
 ```json
-{"ok":true,"name":"hermes-router-cli","mode":"cli-only"}
+{"ok":true,"name":"hermes-router-cli","mode":"dashboard-enabled"}
 ```
 
 ---
@@ -242,11 +306,11 @@ docker run -d \
 
 Project ini sengaja dibuat simple:
 
-- Tidak ada dashboard.
 - Tidak ada cloud sync.
 - Tidak ada auto-login provider.
 - Tidak ada multi-provider publik.
 - Fokus: Hermes sebagai upstream utama.
+- Dashboard dibuat static HTML/CSS/JS langsung dari Express agar ringan.
 
 Kalau nanti mau dikembangkan, fitur berikutnya yang masuk akal:
 
@@ -256,7 +320,7 @@ Kalau nanti mau dikembangkan, fitur berikutnya yang masuk akal:
 4. Model alias: `fast`, `smart`, `coding`.
 5. Rule routing berdasarkan model name.
 6. Command `hermes-router logs`.
-7. Dashboard minimal TUI di terminal.
+7. Dashboard config editor lokal.
 
 ---
 
