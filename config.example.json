@@ -1,0 +1,25 @@
+{
+  "server": {
+    "host": "127.0.0.1",
+    "port": 20128,
+    "requireApiKey": true,
+    "apiKey": "change-this-local-router-key"
+  },
+  "hermes": {
+    "baseUrl": "http://127.0.0.1:3080",
+    "apiKey": "",
+    "chatPath": "/v1/chat/completions",
+    "modelsPath": "/v1/models",
+    "timeoutMs": 120000,
+    "fallbackBaseUrls": []
+  },
+  "tokenSaver": {
+    "enabled": true,
+    "maxToolChars": 12000,
+    "maxContentChars": 30000
+  },
+  "logs": {
+    "level": "info",
+    "logBodies": false
+  }
+}
