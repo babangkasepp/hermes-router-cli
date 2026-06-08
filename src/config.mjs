@@ -27,6 +27,12 @@ export function defaultConfig() {
       protectPage: parseBool(process.env.HERMES_DASHBOARD_PROTECT_PAGE, false),
       refreshMs: numberFromEnv(process.env.HERMES_DASHBOARD_REFRESH_MS, 5000, 1000, 60000)
     },
+    routing: {
+      defaultProvider: process.env.HERMES_DEFAULT_PROVIDER || 'default',
+      strategy: process.env.HERMES_ROUTING_STRATEGY || 'model-prefix'
+    },
+    modelAliases: {},
+    providers: [],
     hermes: {
       baseUrl: process.env.HERMES_BASE_URL || 'http://127.0.0.1:3080',
       apiKey: process.env.HERMES_API_KEY || '',
@@ -69,6 +75,7 @@ export function writeDefaultConfig(configPath = defaultConfigPath(), { force = f
 
   const cfg = defaultConfig();
   cfg.server.apiKey = randomKey('hrk');
+  cfg.providers = [defaultProviderFromHermes(cfg)];
   fs.writeFileSync(configPath, JSON.stringify(cfg, null, 2));
   return { created: true, path: configPath };
 }
@@ -78,13 +85,41 @@ export function validateConfig(config) {
     throw new Error('Invalid config: server.apiKey is required when server.requireApiKey=true');
   }
 
+  config.routing = config.routing || { defaultProvider: 'default', strategy: 'model-prefix' };
+  config.modelAliases = config.modelAliases || {};
+  config.providers = Array.isArray(config.providers) ? config.providers : [];
   config.server.port = clampNumber(config.server.port, 20128, 1, 65535);
   config.hermes.timeoutMs = clampNumber(config.hermes.timeoutMs, 120000, 1000, 600000);
   config.dashboard.refreshMs = clampNumber(config.dashboard.refreshMs, 5000, 1000, 60000);
   config.tokenSaver.maxToolChars = clampNumber(config.tokenSaver.maxToolChars, 12000, 1000, 200000);
   config.tokenSaver.maxContentChars = clampNumber(config.tokenSaver.maxContentChars, 30000, 1000, 400000);
 
+  for (const provider of config.providers) {
+    provider.enabled = provider.enabled !== false;
+    provider.type = provider.type || 'openai-compatible';
+    provider.chatPath = provider.chatPath || '/v1/chat/completions';
+    provider.modelsPath = provider.modelsPath || '/v1/models';
+    provider.timeoutMs = clampNumber(provider.timeoutMs, config.hermes.timeoutMs, 1000, 600000);
+    provider.models = Array.isArray(provider.models) ? provider.models : [];
+    provider.apiKeys = Array.isArray(provider.apiKeys) ? provider.apiKeys : (provider.apiKey ? [provider.apiKey] : []);
+  }
+
   return config;
+}
+
+function defaultProviderFromHermes(cfg) {
+  return {
+    id: 'default',
+    name: 'Default OpenAI-compatible provider',
+    type: 'openai-compatible',
+    enabled: true,
+    baseUrl: cfg.hermes.baseUrl,
+    apiKeys: cfg.hermes.apiKey ? [cfg.hermes.apiKey] : [],
+    chatPath: cfg.hermes.chatPath,
+    modelsPath: cfg.hermes.modelsPath,
+    timeoutMs: cfg.hermes.timeoutMs,
+    models: ['hermes-default']
+  };
 }
 
 function deepMerge(target, source) {
