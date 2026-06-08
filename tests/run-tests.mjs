@@ -17,6 +17,12 @@ const routerConfig = {
     protectPage: false,
     refreshMs: 1000
   },
+  routing: {
+    defaultProvider: 'default',
+    strategy: 'model-prefix'
+  },
+  modelAliases: {},
+  providers: [],
   hermes: {
     baseUrl: upstream.baseUrl,
     apiKey: '',
@@ -48,6 +54,8 @@ try {
   await testDashboard(base);
   await testDashboardHealth(base);
   await testSetupCenter(base);
+  await testMultiProviderApi(base, upstream.baseUrl);
+  await testProviderPrefixRouting(base);
   console.log('All tests passed.');
 } finally {
   await closeServer(router.server);
@@ -134,6 +142,44 @@ async function testSetupCenter(baseUrl) {
   assert.equal(testData.ok, true);
 }
 
+async function testMultiProviderApi(baseUrl, upstreamUrl) {
+  const res = await fetch(`${baseUrl}/dashboard/api/providers`, { headers: authHeaders() });
+  assert.equal(res.status, 200);
+
+  const add = await fetch(`${baseUrl}/dashboard/api/providers`, {
+    method: 'POST',
+    headers: { ...authHeaders(), 'content-type': 'application/json' },
+    body: JSON.stringify({
+      id: 'mock2',
+      name: 'Mock Provider 2',
+      type: 'openai-compatible',
+      baseUrl: upstreamUrl,
+      apiKeys: ['key-a', 'key-b'],
+      models: ['mock-model'],
+      chatPath: '/v1/chat/completions',
+      modelsPath: '/v1/models'
+    })
+  });
+  assert.equal(add.status, 200);
+  const data = await add.json();
+  assert.equal(data.ok, true);
+  assert.equal(data.providers.some((p) => p.id === 'mock2' && p.apiKeyCount === 2), true);
+}
+
+async function testProviderPrefixRouting(baseUrl) {
+  const res = await fetch(`${baseUrl}/v1/chat/completions`, {
+    method: 'POST',
+    headers: { ...authHeaders(), 'content-type': 'application/json' },
+    body: JSON.stringify({
+      model: 'mock2:mock-model',
+      messages: [{ role: 'user', content: 'hello prefix' }]
+    })
+  });
+  assert.equal(res.status, 200);
+  const data = await res.json();
+  assert.equal(data.choices[0].message.content, 'mock-ok');
+}
+
 function authHeaders() {
   return { authorization: 'Bearer test-router-key' };
 }
@@ -141,7 +187,7 @@ function authHeaders() {
 async function startMockHermes() {
   const server = http.createServer(async (req, res) => {
     if (req.url === '/v1/models' && req.method === 'GET') {
-      sendJson(res, 200, { object: 'list', data: [{ id: 'hermes-test', object: 'model' }] });
+      sendJson(res, 200, { object: 'list', data: [{ id: 'hermes-test', object: 'model' }, { id: 'mock-model', object: 'model' }] });
       return;
     }
 
