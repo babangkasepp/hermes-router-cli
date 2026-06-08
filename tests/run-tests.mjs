@@ -47,6 +47,7 @@ try {
   await testChat(base);
   await testDashboard(base);
   await testDashboardHealth(base);
+  await testSetupCenter(base);
   console.log('All tests passed.');
 } finally {
   await closeServer(router.server);
@@ -58,6 +59,7 @@ async function testHealth(baseUrl) {
   assert.equal(res.status, 200);
   const data = await res.json();
   assert.equal(data.ok, true);
+  assert.equal(data.purpose, 'hermes-only-ai-router');
 }
 
 async function testAuth(baseUrl) {
@@ -106,6 +108,30 @@ async function testDashboardHealth(baseUrl) {
   assert.equal(res.status, 200);
   const data = await res.json();
   assert.equal(data.ok, true);
+}
+
+async function testSetupCenter(baseUrl) {
+  const page = await fetch(`${baseUrl}/setup`);
+  assert.equal(page.status, 200);
+  assert.match(await page.text(), /Hermes Setup Center/);
+
+  const cfgNoAuth = await fetch(`${baseUrl}/dashboard/api/config`);
+  assert.equal(cfgNoAuth.status, 401);
+
+  const cfg = await fetch(`${baseUrl}/dashboard/api/config`, { headers: authHeaders() });
+  assert.equal(cfg.status, 200);
+  const data = await cfg.json();
+  assert.equal(data.hermes.baseUrl, `${baseUrl}/v1`);
+  assert.equal(Array.isArray(data.presets), true);
+
+  const test = await fetch(`${baseUrl}/dashboard/api/provider/test`, {
+    method: 'POST',
+    headers: { ...authHeaders(), 'content-type': 'application/json' },
+    body: '{}'
+  });
+  assert.equal(test.status, 200);
+  const testData = await test.json();
+  assert.equal(testData.ok, true);
 }
 
 function authHeaders() {
