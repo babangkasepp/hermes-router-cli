@@ -1,8 +1,10 @@
-export function createMetrics() {
+export function createMetrics(options = {}) {
+  const ignoredPaths = new Set(options.ignoredPaths || ['/dashboard/api/summary']);
   const state = {
     startedAt: Date.now(),
-    totalRequests: 0,
-    totalErrors: 0,
+    http: createCounter(),
+    ai: createCounter(),
+    dashboard: createCounter(),
     routeHits: {},
     statusBuckets: {},
     upstream: {
@@ -24,24 +26,31 @@ export function createMetrics() {
         const started = Date.now();
         res.on('finish', () => {
           const ms = Date.now() - started;
-          const routeKey = routeKeyFrom(req);
+          const path = cleanPath(req);
+          const routeKey = `${req.method} ${path}`;
           const bucket = statusBucket(res.statusCode);
+          const ignored = ignoredPaths.has(path);
+          const category = requestCategory(path);
 
-          state.totalRequests += 1;
-          if (res.statusCode >= 400) state.totalErrors += 1;
-          state.routeHits[routeKey] = (state.routeHits[routeKey] || 0) + 1;
-          state.statusBuckets[bucket] = (state.statusBuckets[bucket] || 0) + 1;
+          if (!ignored) {
+            bumpCounter(state.http, res.statusCode);
+            if (category === 'ai') bumpCounter(state.ai, res.statusCode);
+            if (category === 'dashboard') bumpCounter(state.dashboard, res.statusCode);
+            state.routeHits[routeKey] = (state.routeHits[routeKey] || 0) + 1;
+            state.statusBuckets[bucket] = (state.statusBuckets[bucket] || 0) + 1;
 
-          state.lastRequests.unshift({
-            at: new Date().toISOString(),
-            method: req.method,
-            path: req.originalUrl || req.url,
-            status: res.statusCode,
-            latencyMs: ms,
-            ip: sanitizeIp(req.ip)
-          });
+            state.lastRequests.unshift({
+              at: new Date().toISOString(),
+              category,
+              method: req.method,
+              path,
+              status: res.statusCode,
+              latencyMs: ms,
+              ip: sanitizeIp(req.ip)
+            });
 
-          if (state.lastRequests.length > 30) state.lastRequests.pop();
+            if (state.lastRequests.length > 50) state.lastRequests.pop();
+          }
         });
         next();
       };
@@ -63,21 +72,52 @@ export function createMetrics() {
       return {
         startedAt: new Date(state.startedAt).toISOString(),
         uptimeSeconds: Math.floor((Date.now() - state.startedAt) / 1000),
-        totalRequests: state.totalRequests,
-        totalErrors: state.totalErrors,
-        errorRate: state.totalRequests ? Number((state.totalErrors / state.totalRequests).toFixed(4)) : 0,
-        routeHits: state.routeHits,
-        statusBuckets: state.statusBuckets,
-        upstream: state.upstream,
-        lastRequests: state.lastRequests
+        totalRequests: state.http.total,
+        totalErrors: state.http.errors,
+        errorRate: errorRate(state.http),
+        http: summarizeCounter(state.http),
+        ai: summarizeCounter(state.ai),
+        dashboard: summarizeCounter(state.dashboard),
+        routeHits: { ...state.routeHits },
+        statusBuckets: { ...state.statusBuckets },
+        upstream: { ...state.upstream },
+        lastRequests: [...state.lastRequests]
       };
     }
   };
 }
 
-function routeKeyFrom(req) {
-  const path = (req.originalUrl || req.url || '').split('?')[0];
-  return `${req.method} ${path}`;
+function createCounter() {
+  return { total: 0, ok: 0, errors: 0 };
+}
+
+function bumpCounter(counter, statusCode) {
+  counter.total += 1;
+  if (statusCode >= 400) counter.errors += 1;
+  else counter.ok += 1;
+}
+
+function summarizeCounter(counter) {
+  return {
+    total: counter.total,
+    ok: counter.ok,
+    errors: counter.errors,
+    errorRate: errorRate(counter)
+  };
+}
+
+function errorRate(counter) {
+  return counter.total ? Number((counter.errors / counter.total).toFixed(4)) : 0;
+}
+
+function cleanPath(req) {
+  return (req.originalUrl || req.url || '').split('?')[0] || '/';
+}
+
+function requestCategory(path) {
+  if (path === '/v1/chat/completions' || path === '/v1/models') return 'ai';
+  if (path === '/dashboard' || path.startsWith('/dashboard/')) return 'dashboard';
+  return 'system';
 }
 
 function statusBucket(status) {
