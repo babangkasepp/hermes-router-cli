@@ -1,0 +1,17 @@
+services:
+  hermes-router:
+    build: .
+    container_name: hermes-router-cli
+    ports:
+      - "127.0.0.1:20128:20128"
+    environment:
+      HERMES_ROUTER_HOST: "0.0.0.0"
+      HERMES_ROUTER_PORT: "20128"
+      HERMES_BASE_URL: "http://host.docker.internal:3080"
+      HERMES_ROUTER_REQUIRE_API_KEY: "true"
+      HERMES_ROUTER_API_KEY: "change-this-local-router-key"
+    volumes:
+      - ${HOME}/.hermes-router:/root/.hermes-router
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    restart: unless-stopped
