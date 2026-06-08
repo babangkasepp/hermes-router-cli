@@ -25,10 +25,17 @@ export async function startServer(config) {
   });
 
   app.get('/health', (_req, res) => {
-    res.json({ ok: true, name: 'hermes-router-cli', mode: 'dashboard-enabled' });
+    res.json({
+      ok: true,
+      name: 'hermes-router-cli',
+      mode: config.dashboard?.enabled ? 'dashboard-enabled' : 'cli-only',
+      uptimeSeconds: Math.floor(process.uptime())
+    });
   });
 
-  registerDashboard(app, config, metrics, log, apiKeyGuard);
+  if (config.dashboard?.enabled) {
+    registerDashboard(app, config, metrics, log, apiKeyGuard);
+  }
 
   app.get('/v1/models', apiKeyGuard(config), (req, res) => proxyModels(req, res, config, log));
   app.post('/v1/chat/completions', apiKeyGuard(config), (req, res) => proxyChatCompletion(req, res, config, log));
@@ -55,10 +62,15 @@ export async function startServer(config) {
   const host = config.server.host || '127.0.0.1';
   const port = Number(config.server.port || 20128);
 
-  return new Promise((resolve) => {
+  return new Promise((resolve, reject) => {
     const server = app.listen(port, host, () => {
       log.info({ host, port }, 'Hermes Router CLI started');
-      resolve({ server, log, host, port });
+      resolve({ app, server, log, host, port, metrics });
+    });
+
+    server.on('error', (error) => {
+      log.error({ err: error }, 'failed to start Hermes Router CLI');
+      reject(error);
     });
   });
 }
