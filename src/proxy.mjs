@@ -137,8 +137,8 @@ function buildUpstreamHeaders(req, config, opts = {}) {
 
   if (config.hermes.apiKey) {
     headers.authorization = `Bearer ${config.hermes.apiKey}`;
-  } else if (req.get?.('authorization')) {
-    // Pass client Authorization through only when Hermes API key is not explicitly configured.
+  } else if (config.hermes.passThroughClientAuth && req.get?.('authorization')) {
+    // Optional compatibility mode for upstreams that intentionally reuse client auth.
     headers.authorization = req.get('authorization');
   }
 
